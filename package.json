@@ -1,0 +1,9 @@
+{
+  "name": "lowwear-checkout-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Backend serverless (Vercel) para o checkout da Low Wear via Stripe, substituindo a Storefront API do Shopify apagado.",
+  "dependencies": {
+    "stripe": "^17.4.0"
+  }
+}
