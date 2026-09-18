@@ -28,6 +28,8 @@ function isPromoActive(now) {
 }
 
 module.exports = async (req, res) => {
+  // CORS: liberta para qualquer origem por simplicidade. Se quiser
+  // restringir só ao seu site, troque '*' por 'https://lowwear.shop'.
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -45,6 +47,9 @@ module.exports = async (req, res) => {
   const lines = body && Array.isArray(body.lines) ? body.lines : null;
   if (!lines || !lines.length) return res.status(400).json({ error: 'empty_cart' });
 
+  // Expande cada linha (produto + tamanho + quantidade) em unidades
+  // individuais, para poder aplicar a promoção "6 por 3" às unidades mais
+  // baratas — exatamente como o Shopify fazia antes.
   const units = [];
   for (const line of lines) {
     const product = PRODUCTS.find((p) => p.id === line.productId);
@@ -60,6 +65,8 @@ module.exports = async (req, res) => {
     }
   }
 
+  // Promoção "Escolha 6, pague 3": se ativa e o cliente tiver 6+ unidades
+  // elegíveis no carrinho, as 3 de menor valor ficam grátis.
   let freeIndexes = new Set();
   if (isPromoActive(Date.now())) {
     const eligibleList = PROMO_CONFIG.eligibleProducts || [];
@@ -93,6 +100,12 @@ module.exports = async (req, res) => {
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       line_items,
+      // A conta Stripe do cliente tem "Managed Payments" ativo por omissão,
+      // uma funcionalidade da Stripe (Stripe age como "merchant of record")
+      // que não é compatível com shipping_address_collection. Como aqui
+      // queremos continuar a ser nós a gerir os envios (não a Stripe),
+      // desativamos explicitamente essa funcionalidade nesta sessão.
+      managed_payments: { enabled: false },
       phone_number_collection: { enabled: true },
       shipping_address_collection: {
         allowed_countries: ['PT', 'ES', 'FR', 'DE', 'IT', 'NL', 'BE', 'LU', 'IE', 'BR'],
