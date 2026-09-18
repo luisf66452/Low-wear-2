@@ -27,8 +27,8 @@ module.exports = {
   ],
   "PROMO_CONFIG": {
     "promotionEnabled": true,
-    "promotionStart": "2026-08-04T00:00:00+01:00",
-    "promotionEnd": "2026-08-25T23:59:59+01:00",
+    "promotionStart": "2026-09-18T00:00:00+01:00",
+    "promotionEnd": "2026-10-09T23:59:59+01:00",
     "promotionTimeZone": "Europe/Lisbon",
     "eligibleProducts": [],
     "requiredQuantity": 6,
