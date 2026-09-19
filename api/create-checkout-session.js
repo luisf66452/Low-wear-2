@@ -15,7 +15,7 @@
 //   SITE_URL           — o domínio público do site, ex: https://lowwear.shop
 
 const Stripe = require('stripe');
-const { PRODUCTS, PROMO_CONFIG } = require('./_catalog');
+const { PRODUCTS, PROMO_CONFIG, TIER_CONFIG } = require('./_catalog');
 
 const ALLOWED_SIZES = ['S', 'M', 'L', 'XL'];
 const CUSTOM_NAME_SURCHARGE = 8; // € — mesmo valor que o site já cobrava por personalização
@@ -25,6 +25,17 @@ function isPromoActive(now) {
   const start = new Date(PROMO_CONFIG.promotionStart).getTime();
   const end = new Date(PROMO_CONFIG.promotionEnd).getTime();
   return now >= start && now <= end;
+}
+
+// Escalão mais alto atingido por "quantity" unidades elegíveis da
+// promoção "quanto mais levas, mais poupas" (TIER_CONFIG), ou null.
+function bestTierFor(quantity) {
+  if (!TIER_CONFIG.enabled) return null;
+  let best = null;
+  for (const t of TIER_CONFIG.tiers) {
+    if (quantity >= t.threshold) best = t;
+  }
+  return best;
 }
 
 module.exports = async (req, res) => {
@@ -65,18 +76,44 @@ module.exports = async (req, res) => {
     }
   }
 
-  // Promoção "Escolha 6, pague 3": se ativa e o cliente tiver 6+ unidades
-  // elegíveis no carrinho, as 3 de menor valor ficam grátis.
-  let freeIndexes = new Set();
-  if (isPromoActive(Date.now())) {
-    const eligibleList = PROMO_CONFIG.eligibleProducts || [];
-    const eligibleIdx = units
-      .map((u, idx) => ({ idx, price: u.unitPrice, ok: !eligibleList.length || eligibleList.includes(u.product.id) }))
+  // Duas promoções podem, em teoria, aplicar-se ao mesmo carrinho:
+  //   1) "Escolha 6, pague 3" — sazonal, com prazo (PROMO_CONFIG).
+  //   2) "Quanto mais levas, mais poupas" — permanente, por escalões
+  //      (TIER_CONFIG), mostrada na página de produto.
+  // Regra de segurança: NUNCA acumular as duas. Calcula-se o desconto de
+  // cada uma de forma independente e aplica-se sempre o MAIOR dos dois
+  // (nunca a soma), usando o conjunto de unidades elegíveis dessa mesma
+  // promoção para escolher quais unidades ficam grátis.
+  function eligibleUnits(list) {
+    return units
+      .map((u, idx) => ({ idx, price: u.unitPrice, ok: !list.length || list.includes(u.product.id) }))
       .filter((u) => u.ok);
-    if (eligibleIdx.length >= PROMO_CONFIG.requiredQuantity) {
-      eligibleIdx.sort((a, b) => a.price - b.price);
-      eligibleIdx.slice(0, PROMO_CONFIG.freeQuantity).forEach((u) => freeIndexes.add(u.idx));
+  }
+
+  let seasonalFree = 0;
+  let seasonalPool = [];
+  if (isPromoActive(Date.now())) {
+    seasonalPool = eligibleUnits(PROMO_CONFIG.eligibleProducts || []);
+    if (seasonalPool.length >= PROMO_CONFIG.requiredQuantity) {
+      seasonalFree = PROMO_CONFIG.freeQuantity;
     }
+  }
+
+  let tierFree = 0;
+  let tierPool = [];
+  if (TIER_CONFIG.enabled) {
+    tierPool = eligibleUnits(TIER_CONFIG.eligibleProducts || []);
+    const tier = bestTierFor(tierPool.length);
+    if (tier) tierFree = tier.threshold - tier.pay;
+  }
+
+  const freeIndexes = new Set();
+  if (seasonalFree > 0 || tierFree > 0) {
+    const useSeasonal = seasonalFree >= tierFree;
+    const pool = useSeasonal ? seasonalPool : tierPool;
+    const freeCount = useSeasonal ? seasonalFree : tierFree;
+    pool.sort((a, b) => a.price - b.price);
+    pool.slice(0, freeCount).forEach((u) => freeIndexes.add(u.idx));
   }
 
   const chargeable = units.filter((_, idx) => !freeIndexes.has(idx));
