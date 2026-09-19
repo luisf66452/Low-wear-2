@@ -34,5 +34,16 @@ module.exports = {
     "requiredQuantity": 6,
     "freeQuantity": 3,
     "maximumApplicationsPerOrder": 1
+  },
+  "TIER_CONFIG": {
+    "enabled": true,
+    "eligibleProducts": [],
+    "tiers": [
+      { "threshold": 3, "pay": 2 },
+      { "threshold": 6, "pay": 3 },
+      { "threshold": 9, "pay": 4 },
+      { "threshold": 12, "pay": 5 },
+      { "threshold": 15, "pay": 6 }
+    ]
   }
 };
