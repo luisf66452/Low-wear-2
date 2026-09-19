@@ -18,7 +18,10 @@ const Stripe = require('stripe');
 const { PRODUCTS, PROMO_CONFIG, TIER_CONFIG } = require('./_catalog');
 
 const ALLOWED_SIZES = ['S', 'M', 'L', 'XL'];
+const ALLOWED_VERSIONS = ['Adepto', 'Jogador'];
+const ALLOWED_BADGES = ['', 'Mundial 2026'];
 const CUSTOM_NAME_SURCHARGE = 8; // € — mesmo valor que o site já cobrava por personalização
+const BADGE_SURCHARGE = 2.9;
 
 function isPromoActive(now) {
   if (!PROMO_CONFIG.promotionEnabled) return false;
@@ -104,8 +107,11 @@ module.exports = async (req, res) => {
     // Uma linha Stripe por unidade, incluindo ofertas; nunca truncar o pedido.
     if (units.length + qty > 100) return res.status(400).json({ error: 'cart_too_large', message: 'O limite é de 100 camisolas por encomenda.' });
     const customName = typeof line.customName === 'string' ? line.customName.trim().slice(0, 40) : '';
+    const version = ALLOWED_VERSIONS.includes(line.version) ? line.version : 'Adepto';
+    const badge = ALLOWED_BADGES.includes(line.badge) ? line.badge : '';
     for (let i = 0; i < qty; i++) {
-      units.push({ product, size, customName, unitPrice: product.price + (customName ? CUSTOM_NAME_SURCHARGE : 0) });
+      units.push({ product, size, customName, version, badge,
+        unitPrice: product.price + (customName ? CUSTOM_NAME_SURCHARGE : 0) + (badge ? BADGE_SURCHARGE : 0) });
     }
   }
 
@@ -126,7 +132,10 @@ module.exports = async (req, res) => {
       currency: 'eur',
       unit_amount: freeIndexes.has(idx) ? 0 : Math.round(u.unitPrice * 100),
       product_data: {
-        name: u.product.name + ' — Tam. ' + u.size + (u.customName ? ' — "' + u.customName + '"' : '') + (freeIndexes.has(idx) ? ' — OFERTA' : ''),
+        name: u.product.name + ' — Tam. ' + u.size + ' — ' + u.version
+          + (u.customName ? ' — "' + u.customName + '"' : '')
+          + (u.badge ? ' — ' + u.badge : '')
+          + (freeIndexes.has(idx) ? ' — OFERTA' : ''),
       },
     },
     quantity: 1,
@@ -166,3 +175,4 @@ module.exports = async (req, res) => {
     return res.status(500).json({ error: 'stripe_error', message: err.message });
   }
 };
+
