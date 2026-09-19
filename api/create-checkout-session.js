@@ -87,6 +87,19 @@ module.exports = async (req, res) => {
   if (typeof body === 'string') {
     try { body = JSON.parse(body); } catch { body = null; }
   }
+  const meta = body && body.meta && typeof body.meta === 'object' ? body.meta : {};
+  const fbp = typeof meta.fbp === 'string' ? meta.fbp.slice(0, 200) : '';
+  const fbc = typeof meta.fbc === 'string' ? meta.fbc.slice(0, 200) : '';
+  const forwardedFor = req.headers?.['x-forwarded-for'];
+  const clientIp = String(Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor || '')
+    .split(',')[0].trim().slice(0, 100);
+  const clientUserAgent = String(req.headers?.['user-agent'] || '').slice(0, 500);
+  const trackingMetadata = {};
+  if (fbp) trackingMetadata.meta_fbp = fbp;
+  if (fbc) trackingMetadata.meta_fbc = fbc;
+  if (clientIp) trackingMetadata.client_ip = clientIp;
+  if (clientUserAgent) trackingMetadata.client_user_agent = clientUserAgent;
+
   const lines = body && Array.isArray(body.lines) ? body.lines : null;
   if (!lines || !lines.length) return res.status(400).json({ error: 'empty_cart' });
 
@@ -158,6 +171,7 @@ module.exports = async (req, res) => {
         promotion: promotion.label || 'none',
         free_units: String(freeIndexes.size),
         discount_cents: String(promotion.value),
+        ...trackingMetadata,
       },
       payment_intent_data: {
         description: 'Encomenda ' + orderReference + ' — Low Wear',
@@ -188,4 +202,3 @@ module.exports = async (req, res) => {
     return res.status(500).json({ error: 'stripe_error', message: err.message });
   }
 };
-
