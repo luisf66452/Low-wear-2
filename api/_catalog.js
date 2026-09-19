@@ -35,6 +35,10 @@ module.exports = {
     "freeQuantity": 3,
     "maximumApplicationsPerOrder": 1
   },
+  // Espelho de TIER_CONFIG em js/data.js — "Quanto mais levas, mais poupas".
+  // Editar SEMPRE os dois ficheiros juntos (aqui e js/data.js) para os
+  // escalões mostrados na página de produto baterem certo com o desconto
+  // realmente cobrado no checkout.
   "TIER_CONFIG": {
     "enabled": true,
     "eligibleProducts": [],
