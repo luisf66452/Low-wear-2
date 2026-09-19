@@ -1,4 +1,69 @@
 const Stripe = require('stripe');
+const crypto = require('crypto');
+
+function sha256(value) {
+  return crypto.createHash('sha256').update(String(value)).digest('hex');
+}
+
+function normalizeEmail(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function normalizePhone(value) {
+  return String(value || '').replace(/\D/g, '');
+}
+
+async function sendMetaPurchase(session, reference) {
+  const pixelId = process.env.META_PIXEL_ID || '1074220551792024';
+  const accessToken = process.env.META_CAPI_ACCESS_TOKEN;
+  const apiVersion = process.env.META_GRAPH_API_VERSION || 'v26.0';
+  if (!accessToken) {
+    console.log('[meta.capi] META_CAPI_ACCESS_TOKEN não configurado');
+    return { skipped: true };
+  }
+
+  const email = normalizeEmail(session.customer_details?.email || session.customer_email);
+  const phone = normalizePhone(session.customer_details?.phone);
+  const userData = {};
+  if (email) userData.em = [sha256(email)];
+  if (phone) userData.ph = [sha256(phone)];
+  if (session.metadata?.meta_fbp) userData.fbp = session.metadata.meta_fbp;
+  if (session.metadata?.meta_fbc) userData.fbc = session.metadata.meta_fbc;
+  if (session.metadata?.client_ip) userData.client_ip_address = session.metadata.client_ip;
+  if (session.metadata?.client_user_agent) {
+    userData.client_user_agent = session.metadata.client_user_agent;
+  }
+
+  const payload = {
+    data: [{
+      event_name: 'Purchase',
+      event_time: Math.floor(Date.now() / 1000),
+      event_id: `stripe_${session.id}`,
+      action_source: 'website',
+      event_source_url: process.env.SITE_URL || 'https://lowwear.shop',
+      user_data: userData,
+      custom_data: {
+        currency: String(session.currency || 'eur').toUpperCase(),
+        value: Number(session.amount_total || 0) / 100,
+        order_id: reference,
+      },
+    }],
+  };
+  if (process.env.META_TEST_EVENT_CODE) payload.test_event_code = process.env.META_TEST_EVENT_CODE;
+
+  const response = await fetch(
+    `https://graph.facebook.com/${apiVersion}/${pixelId}/events?access_token=${encodeURIComponent(accessToken)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+  );
+  const responseText = await response.text();
+  if (!response.ok) throw new Error(`Meta CAPI ${response.status}: ${responseText}`);
+  console.log('[meta.purchase]', responseText);
+  return { sent: true };
+}
 
 async function rawBody(req) {
   if (Buffer.isBuffer(req.body)) return req.body;
@@ -52,6 +117,11 @@ async function fulfillPaidSession(stripe, session) {
   const full = await stripe.checkout.sessions.retrieve(session.id, { expand: ['line_items'] });
   if (full.payment_status !== 'paid' && full.payment_status !== 'no_payment_required') return;
   const reference = full.client_reference_id || full.metadata?.order_reference || full.id.slice(-12).toUpperCase();
+  try {
+    await sendMetaPurchase(full, reference);
+  } catch (error) {
+    console.error('[meta.capi.purchase]', error);
+  }
   const items = full.line_items?.data || [];
   const itemsHtml = items.map((line) => `<div style="padding:14px 0;border-bottom:1px solid #eee"><strong>${esc(line.description || 'Artigo Low Wear')}</strong><br><span style="color:#666">Quantidade: ${line.quantity || 1} · ${esc(money(line.amount_total, full.currency))}</span></div>`).join('');
   const total = money(full.amount_total, full.currency);
@@ -101,4 +171,3 @@ module.exports = async (req, res) => {
 // Vercel precisa entregar os bytes originais para a assinatura da Stripe
 // poder ser verificada antes de qualquer processamento do pedido.
 module.exports.config = { api: { bodyParser: false } };
-
