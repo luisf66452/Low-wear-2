@@ -142,16 +142,29 @@ module.exports = async (req, res) => {
   }));
 
   const siteUrl = process.env.SITE_URL || 'https://lowwear.shop';
+  const orderReference = 'LW-' + Date.now().toString(36).toUpperCase()
+    + '-' + Math.random().toString(36).slice(2, 6).toUpperCase();
 
   try {
     const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
+      locale: 'pt',
+      customer_creation: 'always',
+      client_reference_id: orderReference,
       allow_promotion_codes: false,
       metadata: {
+        order_reference: orderReference,
         promotion: promotion.label || 'none',
         free_units: String(freeIndexes.size),
         discount_cents: String(promotion.value),
+      },
+      payment_intent_data: {
+        description: 'Encomenda ' + orderReference + ' — Low Wear',
+        metadata: {
+          order_reference: orderReference,
+          promotion: promotion.label || 'none',
+        },
       },
       line_items,
       // A conta Stripe do cliente tem "Managed Payments" ativo por omissão,
@@ -167,7 +180,7 @@ module.exports = async (req, res) => {
       success_url: `${siteUrl}/obrigado.html?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/index.html`,
     });
-    return res.status(200).json({ url: session.url, freeUnits: freeIndexes.size,
+    return res.status(200).json({ url: session.url, orderReference, freeUnits: freeIndexes.size,
       subtotal: subtotalCents / 100, discount: promotion.value / 100,
       total: (subtotalCents - promotion.value) / 100, promotion: promotion.label });
   } catch (err) {

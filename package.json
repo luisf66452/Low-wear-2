@@ -3,7 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "description": "Backend serverless (Vercel) para o checkout da Low Wear via Stripe, substituindo a Storefront API do Shopify apagado.",
+  "scripts": {
+    "test": "node --test --test-isolation=none"
+  },
   "dependencies": {
     "stripe": "^17.4.0"
   }
 }
+
