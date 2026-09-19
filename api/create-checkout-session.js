@@ -27,8 +27,9 @@ function isPromoActive(now) {
   return now >= start && now <= end;
 }
 
-// Escalão mais alto atingido por "quantity" unidades elegíveis da
-// promoção "quanto mais levas, mais poupas" (TIER_CONFIG), ou null.
+// Devolve o escalão mais alto atingido por "quantity" unidades elegíveis,
+// ou null se nenhum escalão for atingido. Mesma lógica que bestTierFor em
+// js/data.js — mantida em espelho para o desconto bater certo dos dois lados.
 function bestTierFor(quantity) {
   if (!TIER_CONFIG.enabled) return null;
   let best = null;
@@ -36,6 +37,35 @@ function bestTierFor(quantity) {
     if (quantity >= t.threshold) best = t;
   }
   return best;
+}
+
+// Calcula um "candidato" de desconto: quais índices de `units` ficam
+// grátis e o valor total desse desconto. Nunca aplica nada — só calcula,
+// para depois compararmos os candidatos das duas promoções e usar o maior.
+function promo6x3Candidate(units) {
+  if (!isPromoActive(Date.now())) return { freeIndexes: new Set(), value: 0 };
+  const eligibleList = PROMO_CONFIG.eligibleProducts || [];
+  const eligible = units
+    .map((u, idx) => ({ idx, price: u.unitPrice, ok: !eligibleList.length || eligibleList.includes(u.product.id) }))
+    .filter((u) => u.ok);
+  if (eligible.length < PROMO_CONFIG.requiredQuantity) return { freeIndexes: new Set(), value: 0 };
+  eligible.sort((a, b) => a.price - b.price);
+  const free = eligible.slice(0, PROMO_CONFIG.freeQuantity);
+  return { freeIndexes: new Set(free.map((u) => u.idx)), value: free.reduce((s, u) => s + u.price, 0) };
+}
+
+function tierCandidate(units) {
+  if (!TIER_CONFIG.enabled) return { freeIndexes: new Set(), value: 0 };
+  const eligibleList = TIER_CONFIG.eligibleProducts || [];
+  const eligible = units
+    .map((u, idx) => ({ idx, price: u.unitPrice, ok: !eligibleList.length || eligibleList.includes(u.product.id) }))
+    .filter((u) => u.ok);
+  const tier = bestTierFor(eligible.length);
+  if (!tier) return { freeIndexes: new Set(), value: 0 };
+  const freeCount = tier.threshold - tier.pay;
+  eligible.sort((a, b) => a.price - b.price);
+  const free = eligible.slice(0, freeCount);
+  return { freeIndexes: new Set(free.map((u) => u.idx)), value: free.reduce((s, u) => s + u.price, 0) };
 }
 
 module.exports = async (req, res) => {
@@ -76,45 +106,15 @@ module.exports = async (req, res) => {
     }
   }
 
-  // Duas promoções podem, em teoria, aplicar-se ao mesmo carrinho:
-  //   1) "Escolha 6, pague 3" — sazonal, com prazo (PROMO_CONFIG).
-  //   2) "Quanto mais levas, mais poupas" — permanente, por escalões
-  //      (TIER_CONFIG), mostrada na página de produto.
-  // Regra de segurança: NUNCA acumular as duas. Calcula-se o desconto de
-  // cada uma de forma independente e aplica-se sempre o MAIOR dos dois
-  // (nunca a soma), usando o conjunto de unidades elegíveis dessa mesma
-  // promoção para escolher quais unidades ficam grátis.
-  function eligibleUnits(list) {
-    return units
-      .map((u, idx) => ({ idx, price: u.unitPrice, ok: !list.length || list.includes(u.product.id) }))
-      .filter((u) => u.ok);
-  }
-
-  let seasonalFree = 0;
-  let seasonalPool = [];
-  if (isPromoActive(Date.now())) {
-    seasonalPool = eligibleUnits(PROMO_CONFIG.eligibleProducts || []);
-    if (seasonalPool.length >= PROMO_CONFIG.requiredQuantity) {
-      seasonalFree = PROMO_CONFIG.freeQuantity;
-    }
-  }
-
-  let tierFree = 0;
-  let tierPool = [];
-  if (TIER_CONFIG.enabled) {
-    tierPool = eligibleUnits(TIER_CONFIG.eligibleProducts || []);
-    const tier = bestTierFor(tierPool.length);
-    if (tier) tierFree = tier.threshold - tier.pay;
-  }
-
-  const freeIndexes = new Set();
-  if (seasonalFree > 0 || tierFree > 0) {
-    const useSeasonal = seasonalFree >= tierFree;
-    const pool = useSeasonal ? seasonalPool : tierPool;
-    const freeCount = useSeasonal ? seasonalFree : tierFree;
-    pool.sort((a, b) => a.price - b.price);
-    pool.slice(0, freeCount).forEach((u) => freeIndexes.add(u.idx));
-  }
+  // Duas promoções podem aplicar ao mesmo carrinho:
+  //  - "Escolha 6, pague 3" (sazonal, com prazo) — PROMO_CONFIG
+  //  - "Quanto mais levas, mais poupas" (permanente, por escalões) — TIER_CONFIG
+  // Nunca se somam: calcula-se o valor de cada uma separadamente e aplica-se
+  // só a que der mais desconto ao cliente (max()), exatamente como descrito
+  // na página de produto.
+  const promo6x3 = promo6x3Candidate(units);
+  const tierPromo = tierCandidate(units);
+  const freeIndexes = tierPromo.value > promo6x3.value ? tierPromo.freeIndexes : promo6x3.freeIndexes;
 
   const chargeable = units.filter((_, idx) => !freeIndexes.has(idx));
   if (!chargeable.length) return res.status(400).json({ error: 'nothing_to_charge' });
