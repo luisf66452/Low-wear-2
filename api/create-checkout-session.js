@@ -34,38 +34,37 @@ function bestTierFor(quantity) {
   if (!TIER_CONFIG.enabled) return null;
   let best = null;
   for (const t of TIER_CONFIG.tiers) {
-    if (quantity >= t.threshold) best = t;
+    if (quantity >= t.threshold && (!best || t.threshold > best.threshold)) best = t;
   }
   return best;
 }
 
-// Calcula um "candidato" de desconto: quais índices de `units` ficam
-// grátis e o valor total desse desconto. Nunca aplica nada — só calcula,
-// para depois compararmos os candidatos das duas promoções e usar o maior.
-function promo6x3Candidate(units) {
-  if (!isPromoActive(Date.now())) return { freeIndexes: new Set(), value: 0 };
-  const eligibleList = PROMO_CONFIG.eligibleProducts || [];
-  const eligible = units
-    .map((u, idx) => ({ idx, price: u.unitPrice, ok: !eligibleList.length || eligibleList.includes(u.product.id) }))
-    .filter((u) => u.ok);
-  if (eligible.length < PROMO_CONFIG.requiredQuantity) return { freeIndexes: new Set(), value: 0 };
-  eligible.sort((a, b) => a.price - b.price);
-  const free = eligible.slice(0, PROMO_CONFIG.freeQuantity);
-  return { freeIndexes: new Set(free.map((u) => u.idx)), value: free.reduce((s, u) => s + u.price, 0) };
-}
-
-function tierCandidate(units) {
-  if (!TIER_CONFIG.enabled) return { freeIndexes: new Set(), value: 0 };
-  const eligibleList = TIER_CONFIG.eligibleProducts || [];
-  const eligible = units
-    .map((u, idx) => ({ idx, price: u.unitPrice, ok: !eligibleList.length || eligibleList.includes(u.product.id) }))
-    .filter((u) => u.ok);
-  const tier = bestTierFor(eligible.length);
-  if (!tier) return { freeIndexes: new Set(), value: 0 };
-  const freeCount = tier.threshold - tier.pay;
-  eligible.sort((a, b) => a.price - b.price);
-  const free = eligible.slice(0, freeCount);
-  return { freeIndexes: new Set(free.map((u) => u.idx)), value: free.reduce((s, u) => s + u.price, 0) };
+// Mantido em espelho no frontend/backend; os testes verificam a paridade.
+function calculatePromotion(units, now = Date.now()) {
+  const empty = () => ({ freeIndexes: new Set(), value: 0, label: '' });
+  const eligible = (config) => units.map((u, idx) => ({
+    idx, price: Math.round(u.unitPrice * 100), productId: u.product.id,
+  })).filter(u => !config.eligibleProducts?.length || config.eligibleProducts.includes(u.productId))
+    .sort((a, b) => a.price - b.price);
+  const candidate = (items, count, label) => {
+    const free = items.slice(0, count);
+    return { freeIndexes: new Set(free.map(u => u.idx)),
+      value: free.reduce((sum, u) => sum + u.price, 0), label: free.length ? label : '' };
+  };
+  let seasonal = empty();
+  if (isPromoActive(now)) {
+    const items = eligible(PROMO_CONFIG);
+    const applications = Math.min(Math.floor(items.length / PROMO_CONFIG.requiredQuantity),
+      PROMO_CONFIG.maximumApplicationsPerOrder);
+    seasonal = candidate(items, applications * PROMO_CONFIG.freeQuantity,
+      'Escolha ' + PROMO_CONFIG.requiredQuantity + ', pague ' + (PROMO_CONFIG.requiredQuantity - PROMO_CONFIG.freeQuantity));
+  }
+  const items = eligible(TIER_CONFIG);
+  const tier = bestTierFor(items.length);
+  const quantity = tier ? candidate(items, tier.threshold - tier.pay,
+    'Leva ' + tier.threshold + ', paga ' + tier.pay) : empty();
+  // Compara valores monetários, nunca soma as ofertas. Em empate, mostra o escalão.
+  return quantity.value >= seasonal.value ? quantity : seasonal;
 }
 
 module.exports = async (req, res) => {
@@ -93,13 +92,17 @@ module.exports = async (req, res) => {
   // baratas — exatamente como o Shopify fazia antes.
   const units = [];
   for (const line of lines) {
+    if (!line || typeof line !== 'object') return res.status(400).json({ error: 'invalid_line' });
     const product = PRODUCTS.find((p) => p.id === line.productId);
     if (!product) return res.status(400).json({ error: 'invalid_product', productId: line.productId });
     const size = ALLOWED_SIZES.includes(line.size) ? line.size : null;
     if (!size || !product.sizes.includes(size)) {
       return res.status(400).json({ error: 'invalid_size', productId: line.productId, size: line.size });
     }
-    const qty = Math.max(1, Math.min(10, parseInt(line.quantity, 10) || 1));
+    const qty = line.quantity === undefined ? 1 : line.quantity;
+    if (!Number.isInteger(qty) || qty < 1) return res.status(400).json({ error: 'invalid_quantity' });
+    // Uma linha Stripe por unidade, incluindo ofertas; nunca truncar o pedido.
+    if (units.length + qty > 100) return res.status(400).json({ error: 'cart_too_large', message: 'O limite é de 100 camisolas por encomenda.' });
     const customName = typeof line.customName === 'string' ? line.customName.trim().slice(0, 40) : '';
     for (let i = 0; i < qty; i++) {
       units.push({ product, size, customName, unitPrice: product.price + (customName ? CUSTOM_NAME_SURCHARGE : 0) });
@@ -112,19 +115,18 @@ module.exports = async (req, res) => {
   // Nunca se somam: calcula-se o valor de cada uma separadamente e aplica-se
   // só a que der mais desconto ao cliente (max()), exatamente como descrito
   // na página de produto.
-  const promo6x3 = promo6x3Candidate(units);
-  const tierPromo = tierCandidate(units);
-  const freeIndexes = tierPromo.value > promo6x3.value ? tierPromo.freeIndexes : promo6x3.freeIndexes;
+  const promotion = calculatePromotion(units);
+  const { freeIndexes } = promotion;
+  const subtotalCents = units.reduce((sum, u) => sum + Math.round(u.unitPrice * 100), 0);
 
-  const chargeable = units.filter((_, idx) => !freeIndexes.has(idx));
-  if (!chargeable.length) return res.status(400).json({ error: 'nothing_to_charge' });
-
-  const line_items = chargeable.map((u) => ({
+  // As ofertas continuam no pedido, com tamanho/personalização e valor zero.
+  // Não ativar cupões adicionais: o maior desconto já está incluído nos preços.
+  const line_items = units.map((u, idx) => ({
     price_data: {
       currency: 'eur',
-      unit_amount: Math.round(u.unitPrice * 100),
+      unit_amount: freeIndexes.has(idx) ? 0 : Math.round(u.unitPrice * 100),
       product_data: {
-        name: `${u.product.name} — Tam. ${u.size}${u.customName ? ` — "${u.customName}"` : ''}`,
+        name: u.product.name + ' — Tam. ' + u.size + (u.customName ? ' — "' + u.customName + '"' : '') + (freeIndexes.has(idx) ? ' — OFERTA' : ''),
       },
     },
     quantity: 1,
@@ -136,6 +138,12 @@ module.exports = async (req, res) => {
     const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
+      allow_promotion_codes: false,
+      metadata: {
+        promotion: promotion.label || 'none',
+        free_units: String(freeIndexes.size),
+        discount_cents: String(promotion.value),
+      },
       line_items,
       // A conta Stripe do cliente tem "Managed Payments" ativo por omissão,
       // uma funcionalidade da Stripe (Stripe age como "merchant of record")
@@ -150,7 +158,9 @@ module.exports = async (req, res) => {
       success_url: `${siteUrl}/obrigado.html?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/index.html`,
     });
-    return res.status(200).json({ url: session.url, freeUnits: freeIndexes.size });
+    return res.status(200).json({ url: session.url, freeUnits: freeIndexes.size,
+      subtotal: subtotalCents / 100, discount: promotion.value / 100,
+      total: (subtotalCents - promotion.value) / 100, promotion: promotion.label });
   } catch (err) {
     console.error('Stripe error:', err);
     return res.status(500).json({ error: 'stripe_error', message: err.message });
