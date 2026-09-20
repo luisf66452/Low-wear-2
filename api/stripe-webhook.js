@@ -13,7 +13,48 @@ function normalizePhone(value) {
   return String(value || '').replace(/\D/g, '');
 }
 
-async function sendMetaPurchase(session, reference) {
+async function purchaseProducts(stripe, sessionId) {
+  const quantities = new Map();
+  let startingAfter;
+  let complete = true;
+  do {
+    // retrieve(session) only includes a few lines; read every page explicitly.
+    const page = await stripe.checkout.sessions.listLineItems(sessionId, {
+      limit: 100,
+      expand: ['data.price.product'],
+      ...(startingAfter ? { starting_after: startingAfter } : {}),
+    });
+    for (const line of page.data) {
+      const id = line.price?.product?.metadata?.lowwear_product_id;
+      const quantity = line.quantity;
+      if (typeof id !== 'string' || !id.trim() || !Number.isInteger(quantity) || quantity < 1) {
+        complete = false;
+        continue;
+      }
+      quantities.set(id, (quantities.get(id) || 0) + quantity);
+    }
+    if (!page.has_more) break;
+    const next = page.data.at(-1)?.id;
+    if (!next || next === startingAfter) throw new Error('Invalid Stripe line item pagination');
+    startingAfter = next;
+  } while (true);
+
+  // Older sessions have no catalog IDs. Never substitute Stripe prod_* IDs,
+  // guess from descriptions, or report a partially matched basket.
+  if (!complete || !quantities.size) {
+    console.warn('[meta.purchase.products] Catalog IDs unavailable for session', sessionId);
+    return {};
+  }
+  const contents = Array.from(quantities, ([id, quantity]) => ({ id, quantity }));
+  return {
+    content_ids: contents.map(item => item.id),
+    content_type: 'product',
+    contents,
+    num_items: contents.reduce((sum, item) => sum + item.quantity, 0),
+  };
+}
+
+async function sendMetaPurchase(stripe, session, reference) {
   const pixelId = process.env.META_PIXEL_ID || '1074220551792024';
   const accessToken = process.env.META_CAPI_ACCESS_TOKEN;
   const apiVersion = process.env.META_GRAPH_API_VERSION || 'v26.0';
@@ -21,6 +62,8 @@ async function sendMetaPurchase(session, reference) {
     console.log('[meta.capi] META_CAPI_ACCESS_TOKEN não configurado');
     return { skipped: true };
   }
+
+  const products = await purchaseProducts(stripe, session.id);
 
   const email = normalizeEmail(session.customer_details?.email || session.customer_email);
   const phone = normalizePhone(session.customer_details?.phone);
@@ -46,6 +89,7 @@ async function sendMetaPurchase(session, reference) {
         currency: String(session.currency || 'eur').toUpperCase(),
         value: Number(session.amount_total || 0) / 100,
         order_id: reference,
+        ...products,
       },
     }],
   };
@@ -118,7 +162,7 @@ async function fulfillPaidSession(stripe, session) {
   if (full.payment_status !== 'paid' && full.payment_status !== 'no_payment_required') return;
   const reference = full.client_reference_id || full.metadata?.order_reference || full.id.slice(-12).toUpperCase();
   try {
-    await sendMetaPurchase(full, reference);
+    await sendMetaPurchase(stripe, full, reference);
   } catch (error) {
     console.error('[meta.capi.purchase]', error);
   }
