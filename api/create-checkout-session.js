@@ -145,6 +145,7 @@ module.exports = async (req, res) => {
       currency: 'eur',
       unit_amount: freeIndexes.has(idx) ? 0 : Math.round(u.unitPrice * 100),
       product_data: {
+        metadata: { lowwear_product_id: u.product.id },
         name: u.product.name + ' — Tam. ' + u.size + ' — ' + u.version
           + (u.customName ? ' — "' + u.customName + '"' : '')
           + (u.badge ? ' — ' + u.badge : '')
