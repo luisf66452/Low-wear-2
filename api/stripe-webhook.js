@@ -72,6 +72,9 @@ async function sendMetaPurchase(stripe, session, reference) {
   if (phone) userData.ph = [sha256(phone)];
   if (session.metadata?.meta_fbp) userData.fbp = session.metadata.meta_fbp;
   if (session.metadata?.meta_fbc) userData.fbc = session.metadata.meta_fbc;
+  if (session.metadata?.meta_external_id) {
+    userData.external_id = [sha256(session.metadata.meta_external_id)];
+  }
   if (session.metadata?.client_ip) userData.client_ip_address = session.metadata.client_ip;
   if (session.metadata?.client_user_agent) {
     userData.client_user_agent = session.metadata.client_user_agent;
