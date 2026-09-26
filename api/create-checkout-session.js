@@ -90,6 +90,7 @@ module.exports = async (req, res) => {
   const meta = body && body.meta && typeof body.meta === 'object' ? body.meta : {};
   const fbp = typeof meta.fbp === 'string' ? meta.fbp.slice(0, 200) : '';
   const fbc = typeof meta.fbc === 'string' ? meta.fbc.slice(0, 200) : '';
+  const externalId = typeof meta.external_id === 'string' ? meta.external_id.slice(0, 100) : '';
   const forwardedFor = req.headers?.['x-forwarded-for'];
   const clientIp = String(Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor || '')
     .split(',')[0].trim().slice(0, 100);
@@ -97,6 +98,7 @@ module.exports = async (req, res) => {
   const trackingMetadata = {};
   if (fbp) trackingMetadata.meta_fbp = fbp;
   if (fbc) trackingMetadata.meta_fbc = fbc;
+  if (externalId) trackingMetadata.meta_external_id = externalId;
   if (clientIp) trackingMetadata.client_ip = clientIp;
   if (clientUserAgent) trackingMetadata.client_user_agent = clientUserAgent;
 
