@@ -190,6 +190,9 @@ module.exports = async (req, res) => {
       // queremos continuar a ser nós a gerir os envios (não a Stripe),
       // desativamos explicitamente essa funcionalidade nesta sessão.
       managed_payments: { enabled: false },
+      // Sem conversão de moeda (Adaptive Pricing): o cliente vê sempre euros,
+      // e métodos só em EUR (MB WAY, Multibanco) continuam disponíveis.
+      adaptive_pricing: { enabled: false },
       phone_number_collection: { enabled: true },
       shipping_address_collection: {
         allowed_countries: ['PT', 'ES', 'FR', 'DE', 'IT', 'NL', 'BE', 'LU', 'IE', 'BR'],
