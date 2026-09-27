@@ -54,6 +54,16 @@ module.exports = {
   // Editar SEMPRE os dois ficheiros juntos (aqui e js/data.js) para os
   // escalões mostrados na página de produto baterem certo com o desconto
   // realmente cobrado no checkout.
+  // "2 por 79 €" — espelho de PAIR_CONFIG em js/data.js (editar os dois juntos).
+  // Só 1 par por encomenda; casacos excluídos; nunca soma com as outras promoções.
+  "PAIR_CONFIG": {
+    "enabled": true,
+    "eligibleProducts": [],
+    "excludedTypes": ["casaco"],
+    "quantity": 2,
+    "priceCents": 7900,
+    "maximumApplicationsPerOrder": 1
+  },
   "TIER_CONFIG": {
     "enabled": true,
     "eligibleProducts": [],
