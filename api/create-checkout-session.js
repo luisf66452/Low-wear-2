@@ -121,9 +121,9 @@ module.exports = async (req, res) => {
     if (!Number.isInteger(qty) || qty < 1) return res.status(400).json({ error: 'invalid_quantity' });
     // Uma linha Stripe por unidade, incluindo ofertas; nunca truncar o pedido.
     if (units.length + qty > 100) return res.status(400).json({ error: 'cart_too_large', message: 'O limite é de 100 camisolas por encomenda.' });
-    const customName = typeof line.customName === 'string' ? line.customName.trim().slice(0, 40) : '';
-    const version = ALLOWED_VERSIONS.includes(line.version) ? line.version : 'Adepto';
-    const badge = ALLOWED_BADGES.includes(line.badge) ? line.badge : '';
+    const customName = product.type !== 'casaco' && typeof line.customName === 'string' ? line.customName.trim().slice(0, 40) : '';
+    const version = product.type === 'casaco' ? '' : (ALLOWED_VERSIONS.includes(line.version) ? line.version : 'Adepto');
+    const badge = product.type !== 'casaco' && ALLOWED_BADGES.includes(line.badge) ? line.badge : '';
     for (let i = 0; i < qty; i++) {
       units.push({ product, size, customName, version, badge,
         unitPrice: product.price + (customName ? CUSTOM_NAME_SURCHARGE : 0) + (badge ? BADGE_SURCHARGE : 0) });
@@ -148,7 +148,7 @@ module.exports = async (req, res) => {
       unit_amount: freeIndexes.has(idx) ? 0 : Math.round(u.unitPrice * 100),
       product_data: {
         metadata: { lowwear_product_id: u.product.id },
-        name: u.product.name + ' — Tam. ' + u.size + ' — ' + u.version
+        name: u.product.name + ' — Tam. ' + u.size + (u.version ? ' — ' + u.version : '')
           + (u.customName ? ' — "' + u.customName + '"' : '')
           + (u.badge ? ' — ' + u.badge : '')
           + (freeIndexes.has(idx) ? ' — OFERTA' : ''),
