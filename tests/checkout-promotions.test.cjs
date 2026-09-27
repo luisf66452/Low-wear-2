@@ -8,8 +8,12 @@ const original = require('../api/_catalog');
 const source = fs.readFileSync(path.join(root, 'api/create-checkout-session.js'), 'utf8');
 const line = (quantity, productId = 'sel-principal-24', customName = '') =>
   ({ quantity, productId, size: 'M', customName });
-async function checkout(lines, configure = () => {}) {
+async function checkout(lines, configure = () => {}, pairOn = false) {
   const catalog = structuredClone(original);
+  // Preços fixos de teste (os testes verificam a lógica, não o preçário atual).
+  for (const [id, price] of [['sel-principal-24', 59.9], ['sao-principal-24', 69.9], ['ben-principal-24', 49.9]])
+    catalog.PRODUCTS.find(p => p.id === id).price = price;
+  if (!pairOn) catalog.PAIR_CONFIG.enabled = false;
   configure(catalog);
   let request;
   const context = { module: { exports: {} }, console,
@@ -108,4 +112,39 @@ test('rejects unknown products and invalid sizes', async () => {
     assert.equal(response.code, 400);
     assert.equal(request, undefined);
   }
+});
+
+// ---------- "2 por 79 €" (PAIR_CONFIG) ----------
+test('pair: 2 camisolas custam 79 € e as duas continuam no pedido', async () => {
+  const { response, request } = await checkout([line(1), line(1, 'ben-principal-24')], undefined, true);
+  assert.equal(response.body.total, 79);
+  assert.equal(response.body.promotion, '2 por 79 €');
+  assert.equal(response.body.freeUnits, 0);
+  assert.equal(request.line_items.length, 2);
+  assert.equal(request.line_items.reduce((s, l) => s + l.price_data.unit_amount, 0), 7900);
+  assert.ok(request.line_items.every(l => /2 por 79/.test(l.price_data.product_data.name)));
+});
+test('pair: personalização é cobrada à parte', async () => {
+  const { response } = await checkout([line(1, 'sel-principal-24', 'ANA'), line(1)], undefined, true);
+  assert.equal(response.body.total, 87);
+});
+test('pair: nunca soma com as outras promoções (3, 4, 6 unidades mantêm o escalão)', async () => {
+  for (const [qty, total] of [[3, 119.8], [4, 179.7], [6, 179.7]]) {
+    const { response } = await checkout([line(qty)], undefined, true);
+    assert.equal(response.body.total, total);
+  }
+});
+test('pair: só 1 par por encomenda', async () => {
+  const { response } = await checkout([line(2)], c => { c.TIER_CONFIG.enabled = false; c.PROMO_CONFIG.promotionEnabled = false; }, true);
+  assert.equal(response.body.total, 79);
+  const four = await checkout([line(4)], c => { c.TIER_CONFIG.enabled = false; c.PROMO_CONFIG.promotionEnabled = false; }, true);
+  assert.equal(four.response.body.total, 79 + 2 * 59.9);
+});
+test('pair: casacos não entram', async () => {
+  const { response } = await checkout([line(2, 'sel-casaco-perola')], undefined, true);
+  assert.equal(response.body.total, 119.8);
+});
+test('pair: desligado cobra preço normal', async () => {
+  const { response } = await checkout([line(2)], c => { c.PAIR_CONFIG.enabled = false; }, true);
+  assert.equal(response.body.total, 119.8);
 });
