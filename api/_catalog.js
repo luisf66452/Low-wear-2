@@ -1,5 +1,6 @@
 module.exports = {
   "PRODUCTS": [
+    { "id": "sel-branca-brasil", "teamSlug": "selecao", "name": "Branca do Brasil", "price": 49.9, "sizes": ["S","M","L"] },
     { "id": "sel-principal-24", "teamSlug": "selecao", "name": "Amarelinha da Copa", "price": 53.9, "sizes": ["S","M","L"] },
     { "id": "sel-alt-24", "teamSlug": "selecao", "name": "Azul da Copa", "price": 48.9, "sizes": ["S","M","L"] },
     { "id": "sel-especial-24", "teamSlug": "selecao", "name": "Amarelinha Classica", "price": 53.9, "sizes": ["S","M","L"] },
