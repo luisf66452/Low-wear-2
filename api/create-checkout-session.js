@@ -108,9 +108,13 @@ function calculatePairOffer(units) {
 }
 
 module.exports = async (req, res) => {
-  // CORS: liberta para qualquer origem por simplicidade. Se quiser
-  // restringir só ao seu site, troque '*' por 'https://lowwear.shop'.
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  // CORS limitado aos domínios públicos da loja.
+  const allowedOrigins = new Set(['https://lowwear.shop', 'https://www.lowwear.shop']);
+  const origin = req.headers?.origin;
+  if (allowedOrigins.has(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+  }
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -158,8 +162,8 @@ module.exports = async (req, res) => {
     if (!Number.isInteger(qty) || qty < 1) return res.status(400).json({ error: 'invalid_quantity' });
     // Uma linha Stripe por unidade, incluindo ofertas; nunca truncar o pedido.
     if (units.length + qty > 100) return res.status(400).json({ error: 'cart_too_large', message: 'O limite é de 100 camisolas por encomenda.' });
-    const customName = product.type !== 'casaco' && typeof line.customName === 'string' ? line.customName.trim().slice(0, 40) : '';
-    const version = product.type === 'casaco' ? '' : (ALLOWED_VERSIONS.includes(line.version) ? line.version : 'Adepto');
+    const customName = !['casaco', 'conjunto'].includes(product.type) && typeof line.customName === 'string' ? line.customName.trim().slice(0, 40) : '';
+    const version = ['casaco', 'conjunto'].includes(product.type) ? '' : (ALLOWED_VERSIONS.includes(line.version) ? line.version : 'Adepto');
     const badge = product.type !== 'casaco' && ALLOWED_BADGES.includes(line.badge) ? line.badge : '';
     for (let i = 0; i < qty; i++) {
       units.push({ product, size, customName, version, badge,
