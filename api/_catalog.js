@@ -1,5 +1,13 @@
 module.exports = {
   "PRODUCTS": [
+    {"id":"por-sombra","teamSlug":"selecao-portugal","name":"Portugal Sombra Lusitana","price":54.9,"sizes":["S","M","L"],"type":"especial"},
+    {"id":"ben-conjunto-rubro","teamSlug":"benfica","name":"Conjunto Benfica Raça Rubra","price":69.9,"sizes":["S","M","L"],"type":"conjunto"},
+    {"id":"bra-guerreiros","teamSlug":"braga","name":"Braga Alma Guerreira","price":49.9,"sizes":["S","M","L"],"type":"especial"},
+    {"id":"ben-conjunto-luz","teamSlug":"benfica","name":"Conjunto Benfica Luz Branca","price":69.9,"sizes":["S","M","L"],"type":"conjunto"},
+    {"id":"ben-casaco-rubro","teamSlug":"benfica","name":"Casaco Benfica Voo Rubro","price":59.9,"sizes":["S","M","L"],"type":"casaco"},
+    {"id":"fcp-brisa","teamSlug":"porto","name":"Porto Brisa do Douro","price":49.9,"sizes":["S","M","L"],"type":"especial"},
+    {"id":"por-legado","teamSlug":"selecao-portugal","name":"Portugal Legado Lusitano","price":54.9,"sizes":["S","M","L"],"type":"retro"},
+    {"id":"ben-imperial","teamSlug":"benfica","name":"Benfica Águia Imperial","price":54.9,"sizes":["S","M","L"],"type":"especial"},
     {"id":"sel-brisa-turquesa","teamSlug":"selecao","name":"Brasil Brisa Turquesa","price":49.9,"sizes":["S","M","L"]},
     {"id":"bot-estrelas","teamSlug":"botafogo","name":"Estrela Alvinegra","price":49.9,"sizes":["S","M","L"]},
     {"id":"bot-heranca","teamSlug":"botafogo","name":"Herança Gloriosa","price":54.9,"sizes":["S","M","L"]},
@@ -59,7 +67,7 @@ module.exports = {
   "PAIR_CONFIG": {
     "enabled": true,
     "eligibleProducts": [],
-    "excludedTypes": ["casaco"],
+    "excludedTypes": ["casaco", "conjunto"],
     "quantity": 2,
     "priceCents": 7900,
     "maximumApplicationsPerOrder": 1
