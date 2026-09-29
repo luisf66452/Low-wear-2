@@ -19,6 +19,7 @@ const { PRODUCTS, PROMO_CONFIG, TIER_CONFIG, PAIR_CONFIG } = require('./_catalog
 
 const ALLOWED_SIZES = ['S', 'M', 'L', 'XL'];
 const ALLOWED_VERSIONS = ['Adepto', 'Jogador'];
+const ALLOWED_FITS = ['Masculino', 'Feminino'];
 const ALLOWED_BADGES = ['', 'Mundial 2026'];
 const CUSTOM_NAME_SURCHARGE = 8; // € — mesmo valor que o site já cobrava por personalização
 const BADGE_SURCHARGE = 2.9;
@@ -165,8 +166,10 @@ module.exports = async (req, res) => {
     const customName = !['casaco', 'conjunto'].includes(product.type) && typeof line.customName === 'string' ? line.customName.trim().slice(0, 40) : '';
     const version = ['casaco', 'conjunto'].includes(product.type) ? '' : (ALLOWED_VERSIONS.includes(line.version) ? line.version : 'Adepto');
     const badge = product.type !== 'casaco' && ALLOWED_BADGES.includes(line.badge) ? line.badge : '';
+    // Modelo Masculino/Feminino: mesmo produto e preço; só muda o que se envia.
+    const fit = ['casaco', 'conjunto'].includes(product.type) ? '' : (ALLOWED_FITS.includes(line.fit) ? line.fit : 'Masculino');
     for (let i = 0; i < qty; i++) {
-      units.push({ product, size, customName, version, badge,
+      units.push({ product, size, customName, version, badge, fit,
         unitPrice: product.price + (customName ? CUSTOM_NAME_SURCHARGE : 0) + (badge ? BADGE_SURCHARGE : 0) });
     }
   }
@@ -189,8 +192,8 @@ module.exports = async (req, res) => {
       unit_amount: freeIndexes.has(idx) ? 0
         : unitAmounts.has(idx) ? unitAmounts.get(idx) : Math.round(u.unitPrice * 100),
       product_data: {
-        metadata: { lowwear_product_id: u.product.id },
-        name: u.product.name + ' — Tam. ' + u.size + (u.version ? ' — ' + u.version : '')
+        metadata: { lowwear_product_id: u.product.id, fit: u.fit || '' },
+        name: u.product.name + (u.fit ? ' — ' + u.fit : '') + ' — Tam. ' + u.size + (u.version ? ' — ' + u.version : '')
           + (u.customName ? ' — "' + u.customName + '"' : '')
           + (u.badge ? ' — ' + u.badge : '')
           + (freeIndexes.has(idx) ? ' — OFERTA' : '')
