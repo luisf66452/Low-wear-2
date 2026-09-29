@@ -1,5 +1,14 @@
 module.exports = {
   "PRODUCTS": [
+    {"id":"mci-branca-celeste","teamSlug":"manchester-city","type":"especial","name":"Manchester City Branca Celeste","price":49.9,"sizes":["S","M","L"]},
+    {"id":"mci-conjunto-treino-celeste","teamSlug":"manchester-city","type":"conjunto","name":"Manchester City Conjunto Treino Celeste","price":69.9,"sizes":["S","M","L"]},
+    {"id":"mci-retro-adidas","teamSlug":"manchester-city","type":"retro","name":"Manchester City Retrô Adidas","price":54.9,"sizes":["S","M","L"]},
+    {"id":"mci-casaco-blocos-celestes","teamSlug":"manchester-city","type":"casaco","name":"Manchester City Casaco Blocos Celestes","price":59.9,"sizes":["S","M","L"]},
+    {"id":"mci-conjunto-celeste","teamSlug":"manchester-city","type":"conjunto","name":"Manchester City Conjunto Celeste","price":69.9,"sizes":["S","M","L"]},
+    {"id":"mci-casaco-camo-celeste","teamSlug":"manchester-city","type":"casaco","name":"Manchester City Casaco Camo Celeste","price":59.9,"sizes":["S","M","L"]},
+    {"id":"mci-conjunto-treino-azul","teamSlug":"manchester-city","type":"conjunto","name":"Manchester City Conjunto Treino Azul","price":69.9,"sizes":["S","M","L"]},
+    {"id":"mci-conjunto-treino-branco","teamSlug":"manchester-city","type":"conjunto","name":"Manchester City Conjunto Treino Branco","price":69.9,"sizes":["S","M","L"]},
+    {"id":"mci-retro-azul-real","teamSlug":"manchester-city","type":"retro","name":"Manchester City Retrô Azul Real","price":54.9,"sizes":["S","M","L"]},
     {"id":"nap-azul-celeste","teamSlug":"napoli","type":"especial","name":"Napoli Azzurro Celeste","price":49.9,"sizes":["S","M","L"]},
     {"id":"fra-azul-profundo","teamSlug":"selecao-franca","type":"especial","name":"França Azul Profundo","price":49.9,"sizes":["S","M","L"]},
     {"id":"ita-tracksuit-notte","teamSlug":"selecao-italia","type":"conjunto","name":"Itália Tracksuit Notte","price":69.9,"sizes":["S","M","L"]},
