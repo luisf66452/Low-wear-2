@@ -1,5 +1,18 @@
 module.exports = {
   "PRODUCTS": [
+    {"id":"esp-branca-ouro","teamSlug":"selecao-espanha","type":"especial","name":"Espanha Branca Dourada","price":49.9,"sizes":["S","M","L"]},
+    {"id":"esp-conjunto-marfil","teamSlug":"selecao-espanha","type":"conjunto","name":"Conjunto Espanha Marfim Carmesim","price":69.9,"sizes":["S","M","L"]},
+    {"id":"esp-kit-azul","teamSlug":"selecao-espanha","type":"conjunto","name":"Conjunto Espanha Azul Ibérica","price":69.9,"sizes":["S","M","L"]},
+    {"id":"esp-tracksuit-celeste","teamSlug":"selecao-espanha","type":"conjunto","name":"Conjunto Espanha Fúria Celeste","price":69.9,"sizes":["S","M","L"]},
+    {"id":"esp-casaco-marfil","teamSlug":"selecao-espanha","type":"casaco","name":"Casaco Espanha Marfim Clássico","price":59.9,"sizes":["S","M","L"]},
+    {"id":"bar-conjunto-noite","teamSlug":"barcelona","type":"conjunto","name":"Conjunto Barça Noite Catalã","price":69.9,"sizes":["S","M","L"]},
+    {"id":"fla-conjunto-imperial","teamSlug":"flamengo","type":"conjunto","name":"Conjunto Flamengo Nobreza Rubro-Negra","price":69.9,"sizes":["S","M","L"]},
+    {"id":"bar-legacy-azulgrana","teamSlug":"barcelona","type":"retro","name":"Barça Legado Azulgrana","price":54.9,"sizes":["S","M","L"]},
+    {"id":"esp-casaco-granate","teamSlug":"selecao-espanha","type":"casaco","name":"Casaco Espanha Herança Granate","price":59.9,"sizes":["S","M","L"]},
+    {"id":"bar-infantil-blaugrana","teamSlug":"barcelona","type":"especial","name":"Barça Mini Blaugrana","price":44.9,"sizes":["S","M","L"]},
+    {"id":"esp-casaco-neve","teamSlug":"selecao-espanha","type":"casaco","name":"Casaco Espanha Branca de Honra","price":59.9,"sizes":["S","M","L"]},
+    {"id":"esp-furia-roja","teamSlug":"selecao-espanha","type":"especial","name":"Espanha Fúria Roja","price":49.9,"sizes":["S","M","L"]},
+    {"id":"bar-casaco-blaugrana","teamSlug":"barcelona","type":"casaco","name":"Casaco Barça Cores da Catalunha","price":59.9,"sizes":["S","M","L"]},
     {"id":"por-sombra","teamSlug":"selecao-portugal","name":"Portugal Sombra Lusitana","price":54.9,"sizes":["S","M","L"],"type":"especial"},
     {"id":"ben-conjunto-rubro","teamSlug":"benfica","name":"Conjunto Benfica Raça Rubra","price":69.9,"sizes":["S","M","L"],"type":"conjunto"},
     {"id":"bra-guerreiros","teamSlug":"braga","name":"Braga Alma Guerreira","price":49.9,"sizes":["S","M","L"],"type":"especial"},
